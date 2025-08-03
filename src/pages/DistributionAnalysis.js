@@ -6,9 +6,7 @@ import {
 import CountryDistribution from '../components/CountryDistribution';
 import CategoryDistribution from '../components/CategoryDistribution';
 
-const API_BASE_URL = process.env.NODE_ENV === 'production' 
-  ? '' 
-  : 'https://hjrs-backend-production.up.railway.app';
+const API_BASE_URL = process.env.API_BASE_URL;
 
 export default function DistributionAnalysis() {
   const [activeTab, setActiveTab] = useState('country');
