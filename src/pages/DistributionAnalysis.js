@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { 
   BarChart, LineChart, PieChart, Map, Globe, Filter, 
-  AlertCircle, Loader2, RefreshCw, ChevronDown, Book 
+  AlertCircle, Loader2, RefreshCw, ChevronDown, Book, Menu 
 } from 'lucide-react';
 import CountryDistribution from '../components/CountryDistribution';
 import CategoryDistribution from '../components/CategoryDistribution';
@@ -21,6 +21,9 @@ export default function DistributionAnalysis() {
   const [selectedCategory, setSelectedCategory] = useState('all');  
   const [countries, setCountries] = useState([]);
   const [selectedCountry, setSelectedCountry] = useState('all');
+  
+  // Mobile menu state
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   useEffect(() => {
     fetchFilters();
@@ -155,23 +158,100 @@ export default function DistributionAnalysis() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-gradient-to-r from-blue-800 to-indigo-900 py-6 shadow-md">
+      {/* Responsive Header */}
+      <header className="bg-gradient-to-r from-blue-800 to-indigo-900 py-4 md:py-6 shadow-md">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between">
+            {/* Logo and Title */}
             <div className="flex items-center space-x-3">
-              <Book className="h-8 w-8 text-white" />
-              <h1 className="text-2xl font-bold text-white">HEC Journal Recognition System</h1>
+              <Book className="h-6 w-6 md:h-8 md:w-8 text-white flex-shrink-0" />
+              <h1 className="text-lg md:text-2xl font-bold text-white">
+                <span className="hidden sm:inline">HEC Journal Recognition System</span>
+                <span className="sm:hidden">HEC JRS</span>
+              </h1>
             </div>
-            <nav>
+
+            {/* Desktop Navigation */}
+            <nav className="hidden lg:block">
               <ul className="flex space-x-6">
-                <li><a href="/journal-lookup" className="text-blue-100 hover:text-white">Journal Lookup</a></li>
-                <li><a href="/filtered-search" className="text-blue-100 hover:text-white">Advanced Search</a></li>
-                <li><a href="/distribution-analysis" className="text-white font-medium">Distribution Analysis</a></li>
-                <li><a href="/performance-prediction" className="text-blue-100 hover:text-white">Performance Prediction</a></li>
+                <li>
+                  <a href="/journal-lookup" className="text-blue-100 hover:text-white transition-colors">
+                    Journal Lookup
+                  </a>
+                </li>
+                <li>
+                  <a href="/filtered-search" className="text-blue-100 hover:text-white transition-colors">
+                    Advanced Search
+                  </a>
+                </li>
+                <li>
+                  <a href="/distribution-analysis" className="text-white font-medium">
+                    Distribution Analysis
+                  </a>
+                </li>
+                <li>
+                  <a href="/performance-prediction" className="text-blue-100 hover:text-white transition-colors">
+                    Performance Prediction
+                  </a>
+                </li>
               </ul>
             </nav>
+
+            {/* Mobile Menu Button */}
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="lg:hidden p-2 rounded-md text-blue-100 hover:text-white hover:bg-blue-700 transition-colors"
+              aria-label="Toggle mobile menu"
+            >
+              <Menu className="h-6 w-6" />
+            </button>
           </div>
+
+          {/* Mobile Navigation */}
+          {isMobileMenuOpen && (
+            <div className="lg:hidden mt-4 pb-4 border-t border-blue-700">
+              <nav className="pt-4">
+                <ul className="space-y-2">
+                  <li>
+                    <a 
+                      href="/journal-lookup" 
+                      className="block px-3 py-2 rounded-md text-blue-100 hover:text-white hover:bg-blue-700 transition-colors"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      Journal Lookup
+                    </a>
+                  </li>
+                  <li>
+                    <a 
+                      href="/filtered-search" 
+                      className="block px-3 py-2 rounded-md text-blue-100 hover:text-white hover:bg-blue-700 transition-colors"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      Advanced Search
+                    </a>
+                  </li>
+                  <li>
+                    <a 
+                      href="/distribution-analysis" 
+                      className="block px-3 py-2 rounded-md text-white font-medium bg-blue-700"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      Distribution Analysis
+                    </a>
+                  </li>
+                  <li>
+                    <a 
+                      href="/performance-prediction" 
+                      className="block px-3 py-2 rounded-md text-blue-100 hover:text-white hover:bg-blue-700 transition-colors"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      Performance Prediction
+                    </a>
+                  </li>
+                </ul>
+              </nav>
+            </div>
+          )}
         </div>
       </header>
 
@@ -179,8 +259,8 @@ export default function DistributionAnalysis() {
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-6xl mx-auto">
           <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-semibold text-gray-800">Journal Distribution Analysis</h2>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+              <h2 className="text-xl md:text-2xl font-semibold text-gray-800">Journal Distribution Analysis</h2>
               <button 
                 onClick={refreshData}
                 disabled={isLoading}
@@ -192,9 +272,9 @@ export default function DistributionAnalysis() {
             </div>
 
             {/* Tabs */}
-            <div className="flex border-b border-gray-200 mb-6">
+            <div className="flex border-b border-gray-200 mb-6 overflow-x-auto">
               <button
-                className={`flex items-center py-2 px-4 ${
+                className={`flex items-center py-2 px-4 whitespace-nowrap ${
                   activeTab === 'country'
                     ? 'text-blue-600 border-b-2 border-blue-500 font-medium'
                     : 'text-gray-600 hover:text-gray-800'
@@ -205,7 +285,7 @@ export default function DistributionAnalysis() {
                 By Country
               </button>
               <button
-                className={`flex items-center py-2 px-4 ${
+                className={`flex items-center py-2 px-4 whitespace-nowrap ${
                   activeTab === 'category'
                     ? 'text-blue-600 border-b-2 border-blue-500 font-medium'
                     : 'text-gray-600 hover:text-gray-800'
@@ -218,8 +298,8 @@ export default function DistributionAnalysis() {
             </div>
 
             {/* Filters */}
-            <div className="flex flex-wrap gap-4 mb-6">
-              <div>
+            <div className="flex flex-col sm:flex-row flex-wrap gap-4 mb-6">
+              <div className="w-full sm:w-auto">
                 <label htmlFor="year-filter" className="block text-sm font-medium text-gray-700 mb-1">
                   Publishing Year
                 </label>
@@ -227,7 +307,7 @@ export default function DistributionAnalysis() {
                   id="year-filter"
                   value={selectedYear}
                   onChange={(e) => setSelectedYear(e.target.value)}
-                  className="w-48 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  className="w-full sm:w-48 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                 >
                   <option value="all">All Years</option>
                   {Array.isArray(years) && years.map(year => (
@@ -239,7 +319,7 @@ export default function DistributionAnalysis() {
               </div>
               
               {activeTab === 'country' && (
-                <div>
+                <div className="w-full sm:w-auto">
                   <label htmlFor="category-filter" className="block text-sm font-medium text-gray-700 mb-1">
                     Category
                   </label>
@@ -247,7 +327,7 @@ export default function DistributionAnalysis() {
                     id="category-filter"
                     value={selectedCategory}
                     onChange={(e) => setSelectedCategory(e.target.value)}
-                    className="w-48 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                    className="w-full sm:w-48 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                   >
                     <option value="all">All Categories</option>
                     {Array.isArray(categories) && categories.map(category => (
@@ -260,7 +340,7 @@ export default function DistributionAnalysis() {
               )}
 
               {activeTab !== 'country' && (
-                <div>
+                <div className="w-full sm:w-auto">
                   <label htmlFor="country-filter" className="block text-sm font-medium text-gray-700 mb-1">
                     Country
                   </label>
@@ -268,7 +348,7 @@ export default function DistributionAnalysis() {
                     id="country-filter"
                     value={selectedCountry}
                     onChange={(e) => setSelectedCountry(e.target.value)}
-                    className="w-48 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                    className="w-full sm:w-48 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                   >
                     <option value="all">All Countries</option>
                     {Array.isArray(countries) && countries.map(country => (
@@ -322,4 +402,4 @@ export default function DistributionAnalysis() {
       </main>
     </div>
   );
-}
+};

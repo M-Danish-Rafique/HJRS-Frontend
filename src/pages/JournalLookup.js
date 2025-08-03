@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, Book, AlertCircle, Loader2, X } from 'lucide-react';
+import { Search, Book, AlertCircle, Loader2, X, Menu } from 'lucide-react';
 
 const API_BASE_URL = 'https://hjrs-backend-production.up.railway.app';
 
@@ -12,6 +12,9 @@ export default function JournalLookup() {
   const [searchResults, setSearchResults] = useState([]);
   const [error, setError] = useState(null);
   const [selectedJournal, setSelectedJournal] = useState(null);
+  
+  // Mobile menu state
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     console.log('Component mounted');
@@ -82,23 +85,100 @@ export default function JournalLookup() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-gradient-to-r from-blue-800 to-indigo-900 py-6 shadow-md">
+      {/* Responsive Header */}
+      <header className="bg-gradient-to-r from-blue-800 to-indigo-900 py-4 md:py-6 shadow-md">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between">
+            {/* Logo and Title */}
             <div className="flex items-center space-x-3">
-              <Book className="h-8 w-8 text-white" />
-              <h1 className="text-2xl font-bold text-white">HEC Journal Recognition System</h1>
+              <Book className="h-6 w-6 md:h-8 md:w-8 text-white flex-shrink-0" />
+              <h1 className="text-lg md:text-2xl font-bold text-white">
+                <span className="hidden sm:inline">HEC Journal Recognition System</span>
+                <span className="sm:hidden">HEC JRS</span>
+              </h1>
             </div>
-            <nav>
+
+            {/* Desktop Navigation */}
+            <nav className="hidden lg:block">
               <ul className="flex space-x-6">
-                <li><a href="/journal-lookup" className="text-white font-medium">Journal Lookup</a></li>
-                <li><a href="/filtered-search" className="text-blue-100 hover:text-white">Advanced Search</a></li>
-                <li><a href="/distribution-analysis" className="text-blue-100 hover:text-white">Distribution Analysis</a></li>
-                <li><a href="/performance-prediction" className="text-blue-100 hover:text-white">Performance Prediction</a></li>
+                <li>
+                  <a href="/journal-lookup" className="text-white font-medium">
+                    Journal Lookup
+                  </a>
+                </li>
+                <li>
+                  <a href="/filtered-search" className="text-blue-100 hover:text-white transition-colors">
+                    Advanced Search
+                  </a>
+                </li>
+                <li>
+                  <a href="/distribution-analysis" className="text-blue-100 hover:text-white transition-colors">
+                    Distribution Analysis
+                  </a>
+                </li>
+                <li>
+                  <a href="/performance-prediction" className="text-blue-100 hover:text-white transition-colors">
+                    Performance Prediction
+                  </a>
+                </li>
               </ul>
             </nav>
+
+            {/* Mobile Menu Button */}
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="lg:hidden p-2 rounded-md text-blue-100 hover:text-white hover:bg-blue-700 transition-colors"
+              aria-label="Toggle mobile menu"
+            >
+              <Menu className="h-6 w-6" />
+            </button>
           </div>
+
+          {/* Mobile Navigation */}
+          {isMobileMenuOpen && (
+            <div className="lg:hidden mt-4 pb-4 border-t border-blue-700">
+              <nav className="pt-4">
+                <ul className="space-y-2">
+                  <li>
+                    <a 
+                      href="/journal-lookup" 
+                      className="block px-3 py-2 rounded-md text-white font-medium bg-blue-700"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      Journal Lookup
+                    </a>
+                  </li>
+                  <li>
+                    <a 
+                      href="/filtered-search" 
+                      className="block px-3 py-2 rounded-md text-blue-100 hover:text-white hover:bg-blue-700 transition-colors"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      Advanced Search
+                    </a>
+                  </li>
+                  <li>
+                    <a 
+                      href="/distribution-analysis" 
+                      className="block px-3 py-2 rounded-md text-blue-100 hover:text-white hover:bg-blue-700 transition-colors"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      Distribution Analysis
+                    </a>
+                  </li>
+                  <li>
+                    <a 
+                      href="/performance-prediction" 
+                      className="block px-3 py-2 rounded-md text-blue-100 hover:text-white hover:bg-blue-700 transition-colors"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      Performance Prediction
+                    </a>
+                  </li>
+                </ul>
+              </nav>
+            </div>
+          )}
         </div>
       </header>
 
@@ -280,4 +360,4 @@ export default function JournalLookup() {
       </main>
     </div>
   );
-}
+};

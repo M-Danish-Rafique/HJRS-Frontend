@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react';
-import { Search, Book, AlertCircle, Loader2, X, Filter, ChevronDown, ChevronUp } from 'lucide-react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Search, Book, AlertCircle, Loader2, X, Filter, ChevronDown, ChevronUp, Menu } from 'lucide-react';
 
-const API_BASE_URL = 'https://hjrs-backend-production.up.railway.app';
+const API_BASE_URL = process.env.NODE_ENV === 'production' 
+  ? '' 
+  : 'https://hjrs-backend-production.up.railway.app';
 
 export default function FilteredJournalSearch() {
   const [filters, setFilters] = useState({
@@ -24,12 +26,17 @@ export default function FilteredJournalSearch() {
     publishers: []
   });
 
+  // Add publisher search state
+  const [publisherSearch, setPublisherSearch] = useState('');
+  const [publisherSuggestions, setPublisherSuggestions] = useState([]);
+  const [showPublisherSuggestions, setShowPublisherSuggestions] = useState(false);
+  const [isLoadingPublishers, setIsLoadingPublishers] = useState(false);
+
   const [isLoading, setIsLoading] = useState(false);
   const [searchResults, setSearchResults] = useState([]);
   const [error, setError] = useState(null);
   const [selectedJournal, setSelectedJournal] = useState(null);
   const [isFiltersExpanded, setIsFiltersExpanded] = useState(true);
-  const [activeFiltersCount, setActiveFiltersCount] = useState(0);
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -37,30 +44,31 @@ export default function FilteredJournalSearch() {
   const [resultsPerPage, setResultsPerPage] = useState(25);
   const totalPages = Math.ceil(totalResults / resultsPerPage);
 
-  useEffect(() => {
-    loadFilterOptions();
-  }, []);
+  // Mobile menu state
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  useEffect(() => {
-    // Count active filters
-    const count = Object.entries(filters).reduce((acc, [key, value]) => {
+  // Memoize active filters count to prevent unnecessary re-renders
+  const activeFiltersCount = useMemo(() => {
+    return Object.entries(filters).reduce((acc, [key, value]) => {
       if (key === 'minJpi' || key === 'maxJpi') {
         return value !== '' ? acc + 1 : acc;
       }
       return Array.isArray(value) && value.length > 0 ? acc + 1 : acc;
     }, 0);
-    setActiveFiltersCount(count);
   }, [filters]);
 
-  const loadFilterOptions = async () => {
+  useEffect(() => {
+    loadFilterOptions();
+  }, []);
+
+  const loadFilterOptions = useCallback(async () => {
     try {
-      // Load filter options from your backend endpoints
-      const [countriesRes, yearsRes, categoriesRes, subjectAreasRes, publishersRes] = await Promise.all([
+      // Load filter options from your backend endpoints (excluding publishers)
+      const [countriesRes, yearsRes, categoriesRes, subjectAreasRes] = await Promise.all([
         fetch(`${API_BASE_URL}/api/reference/countries`),
         fetch(`${API_BASE_URL}/api/reference/publishing-years`),
         fetch(`${API_BASE_URL}/api/reference/categories`),
-        fetch(`${API_BASE_URL}/api/reference/subject-areas`),
-        fetch(`${API_BASE_URL}/api/reference/publishers`)
+        fetch(`${API_BASE_URL}/api/reference/subject-areas`)
       ]);
 
       setFilterOptions({
@@ -68,7 +76,7 @@ export default function FilteredJournalSearch() {
         years: yearsRes.ok ? await yearsRes.json() : [],
         categories: categoriesRes.ok ? await categoriesRes.json() : [],
         subjectAreas: subjectAreasRes.ok ? await subjectAreasRes.json() : [],
-        publishers: publishersRes.ok ? await publishersRes.json() : [],
+        publishers: [], // Will be populated on demand
         subjectSubcategories: [] // Will use same subject areas for subcategories
       });
     } catch (err) {
@@ -83,11 +91,31 @@ export default function FilteredJournalSearch() {
         subjectSubcategories: []
       });
     }
-  };
+  }, []);
 
-  const handleFilterChange = (filterName, value) => {
+  const handleFilterChange = useCallback((filterName, value) => {
     if (filterName === 'minJpi' || filterName === 'maxJpi') {
-      // Handle JPI range inputs (single values)
+      // Handle JPI range inputs with validation
+      let numValue = value === '' ? '' : Number(value);
+      
+      // Validate range 0-100
+      if (numValue !== '' && (numValue < 0 || numValue > 100)) {
+        return; // Don't update if outside valid range
+      }
+      
+      // Additional validation for min/max relationship
+      if (filterName === 'minJpi' && filters.maxJpi !== '') {
+        if (numValue !== '' && numValue > Number(filters.maxJpi)) {
+          return; // Don't update if min > max
+        }
+      }
+      
+      if (filterName === 'maxJpi' && filters.minJpi !== '') {
+        if (numValue !== '' && numValue < Number(filters.minJpi)) {
+          return; // Don't update if max < min
+        }
+      }
+      
       setFilters(prev => ({
         ...prev,
         [filterName]: value
@@ -115,18 +143,83 @@ export default function FilteredJournalSearch() {
         subjectSubcategories: prev.subjectAreas
       }));
     }
-  };
+  }, [filters.minJpi, filters.maxJpi]);
 
-  const loadSubcategories = async (subjectAreaId) => {
+  const loadSubcategories = useCallback(async (subjectAreaId) => {
     // Since subcategories refer to the same SubjectArea table,
     // we'll use the already loaded subject areas
     setFilterOptions(prev => ({
       ...prev,
       subjectSubcategories: prev.subjectAreas
-    })    );
-  };
+    }));
+  }, []);
 
-  const FilterInput = ({ label, value, onChange, placeholder, type = "text" }) => (
+  // Publisher search functions - debounced to prevent too many API calls
+  const searchPublishers = useCallback(async (query) => {
+    if (!query || query.length < 2) {
+      setPublisherSuggestions([]);
+      setShowPublisherSuggestions(false);
+      return;
+    }
+
+    setIsLoadingPublishers(true);
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/reference/publishers/search?q=${encodeURIComponent(query)}`,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include'
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        setPublisherSuggestions(data.slice(0, 100)); // Limit to 100 suggestions
+        setShowPublisherSuggestions(true);
+      } else {
+        setPublisherSuggestions([]);
+        setShowPublisherSuggestions(false);
+      }
+    } catch (err) {
+      console.error('Error searching publishers:', err);
+      setPublisherSuggestions([]);
+      setShowPublisherSuggestions(false);
+    } finally {
+      setIsLoadingPublishers(false);
+    }
+  }, []);
+
+  // Debounce publisher search to prevent excessive API calls
+  const debouncedSearchPublishers = useCallback(
+    (() => {
+      let timeoutId;
+      return (query) => {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => searchPublishers(query), 300);
+      };
+    })(),
+    [searchPublishers]
+  );
+
+  const handlePublisherSelect = useCallback((publisher) => {
+    // Add to selected publishers
+    handleFilterChange('publisher', publisher.publisher_id);
+    
+    // Update the publishers in filterOptions for display
+    setFilterOptions(prev => ({
+      ...prev,
+      publishers: [...prev.publishers, publisher]
+    }));
+    
+    // Clear search
+    setPublisherSearch('');
+    setShowPublisherSuggestions(false);
+  }, [handleFilterChange]);
+
+  // Memoized components to prevent unnecessary re-renders
+  const FilterInput = useCallback(({ label, value, onChange, placeholder, type = "text" }) => (
     <div className="space-y-2">
       <label className="block text-sm font-medium text-gray-700">{label}</label>
       <input
@@ -134,12 +227,92 @@ export default function FilteredJournalSearch() {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
+        min={type === "number" ? "0" : undefined}
+        max={type === "number" ? "100" : undefined}
         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
       />
+      {type === "number" && (
+        <p className="text-xs text-gray-500">Value must be between 0 and 100</p>
+      )}
     </div>
-  );
+  ), []);
 
-  const ResultsPerPageSelector = () => (
+  // Handle publisher search input change
+  const handlePublisherSearchChange = useCallback((e) => {
+    const value = e.target.value;
+    setPublisherSearch(value);
+    debouncedSearchPublishers(value);
+  }, [debouncedSearchPublishers]);
+
+  const PublisherAutocomplete = useCallback(({ label, values, onChange }) => (
+    <div className="space-y-2">
+      <label className="block text-sm font-medium text-gray-700">{label}</label>
+      <div className="relative">
+        <input
+          type="text"
+          value={publisherSearch}
+          onChange={handlePublisherSearchChange}
+          placeholder="Search publishers..."
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+        />
+        
+        {/* Loading indicator */}
+        {isLoadingPublishers && (
+          <div className="absolute right-3 top-3">
+            <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+          </div>
+        )}
+        
+        {/* Suggestions dropdown */}
+        {showPublisherSuggestions && publisherSuggestions.length > 0 && (
+          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+            {publisherSuggestions.map((publisher) => (
+              <button
+                key={publisher.publisher_id}
+                type="button"
+                onClick={() => handlePublisherSelect(publisher)}
+                disabled={values.includes(String(publisher.publisher_id))}
+                className="w-full px-3 py-2 text-left hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed border-b border-gray-100 last:border-b-0"
+              >
+                <div className="text-base text-gray-800">{publisher.publisher_name}</div>
+              </button>
+            ))}
+          </div>
+        )}
+        
+        {/* Selected publishers display */}
+        {values.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {values.map((value) => {
+              const publisher = filterOptions.publishers.find(pub => 
+                String(pub.publisher_id) === String(value)
+              );
+              
+              const displayName = publisher ? publisher.publisher_name : `Unknown (${value})`;
+              
+              return (
+                <span
+                  key={value}
+                  className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                >
+                  {displayName}
+                  <button
+                    type="button"
+                    onClick={() => onChange(value)}
+                    className="ml-1 h-4 w-4 rounded-full inline-flex items-center justify-center text-blue-400 hover:bg-blue-200 hover:text-blue-600"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  ), [publisherSearch, handlePublisherSearchChange, isLoadingPublishers, showPublisherSuggestions, publisherSuggestions, filterOptions.publishers, handlePublisherSelect]);
+
+  const ResultsPerPageSelector = useMemo(() => () => (
     <div className="flex items-center space-x-2 text-sm">
       <span className="text-gray-700">Show:</span>
       <select
@@ -160,9 +333,9 @@ export default function FilteredJournalSearch() {
       </select>
       <span className="text-gray-700">per page</span>
     </div>
-  );
+  ), [resultsPerPage, searchResults.length]);
 
-  const handleSearch = async (page = 1) => {
+  const handleSearch = useCallback(async (page = 1) => {
     setIsLoading(true);
     setError(null);
     if (page === 1) {
@@ -216,13 +389,13 @@ export default function FilteredJournalSearch() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [filters, resultsPerPage]);
 
-  const handleSelectJournal = (journal) => {
+  const handleSelectJournal = useCallback((journal) => {
     setSelectedJournal(journal);
-  };
+  }, []);
 
-  const clearAllFilters = () => {
+  const clearAllFilters = useCallback(() => {
     setFilters({
       country: [],
       year: [],
@@ -238,9 +411,16 @@ export default function FilteredJournalSearch() {
     setError(null);
     setCurrentPage(1);
     setTotalResults(0);
-  };
+    setPublisherSearch('');
+    setPublisherSuggestions([]);
+    setShowPublisherSuggestions(false);
+    setFilterOptions(prev => ({
+      ...prev,
+      publishers: []
+    }));
+  }, []);
 
-  const FilterMultiSelect = ({ label, values, onChange, options, placeholder }) => (
+  const FilterMultiSelect = useMemo(() => ({ label, values, onChange, options, placeholder }) => (
     <div className="space-y-2">
       <label className="block text-sm font-medium text-gray-700">{label}</label>
       <div className="relative">
@@ -299,9 +479,9 @@ export default function FilteredJournalSearch() {
         )}
       </div>
     </div>
-  );
+  ), []);
 
-  const PaginationControls = () => {
+  const PaginationControls = useMemo(() => () => {
     const getPageNumbers = () => {
       const pages = [];
       const maxVisible = 5;
@@ -378,27 +558,104 @@ export default function FilteredJournalSearch() {
         </div>
       </div>
     );
-  };
+  }, [currentPage, totalPages, resultsPerPage, totalResults, isLoading, handleSearch]);
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-gradient-to-r from-blue-800 to-indigo-900 py-6 shadow-md">
+      <header className="bg-gradient-to-r from-blue-800 to-indigo-900 py-4 md:py-6 shadow-md">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between">
+            {/* Logo and Title */}
             <div className="flex items-center space-x-3">
-              <Book className="h-8 w-8 text-white" />
-              <h1 className="text-2xl font-bold text-white">HEC Journal Recognition System</h1>
+              <Book className="h-6 w-6 md:h-8 md:w-8 text-white flex-shrink-0" />
+              <h1 className="text-lg md:text-2xl font-bold text-white">
+                <span className="hidden sm:inline">HEC Journal Recognition System</span>
+                <span className="sm:hidden">HEC JRS</span>
+              </h1>
             </div>
-            <nav>
+
+            {/* Desktop Navigation */}
+            <nav className="hidden lg:block">
               <ul className="flex space-x-6">
-                <li><a href="/journal-lookup" className="text-blue-100 hover:text-white">Journal Lookup</a></li>
-                <li><a href="/filtered-search" className="text-white font-medium">Advanced Search</a></li>
-                <li><a href="/distribution-analysis" className="text-blue-100 hover:text-white">Distribution Analysis</a></li>
-                <li><a href="/performance-prediction" className="text-blue-100 hover:text-white">Performance Prediction</a></li>
+                <li>
+                  <a href="/journal-lookup" className="text-blue-100 hover:text-white transition-colors">
+                    Journal Lookup
+                  </a>
+                </li>
+                <li>
+                  <a href="/filtered-search" className="text-white font-medium">
+                    Advanced Search
+                  </a>
+                </li>
+                <li>
+                  <a href="/distribution-analysis" className="text-blue-100 hover:text-white transition-colors">
+                    Distribution Analysis
+                  </a>
+                </li>
+                <li>
+                  <a href="/performance-prediction" className="text-blue-100 hover:text-white transition-colors">
+                    Performance Prediction
+                  </a>
+                </li>
               </ul>
             </nav>
+
+            {/* Mobile Menu Button */}
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="lg:hidden p-2 rounded-md text-blue-100 hover:text-white hover:bg-blue-700 transition-colors"
+              aria-label="Toggle mobile menu"
+            >
+              <Menu className="h-6 w-6" />
+            </button>
           </div>
+
+          {/* Mobile Navigation */}
+          {isMobileMenuOpen && (
+            <div className="lg:hidden mt-4 pb-4 border-t border-blue-700">
+              <nav className="pt-4">
+                <ul className="space-y-2">
+                  <li>
+                    <a 
+                      href="/journal-lookup" 
+                      className="block px-3 py-2 rounded-md text-blue-100 hover:text-white hover:bg-blue-700 transition-colors"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      Journal Lookup
+                    </a>
+                  </li>
+                  <li>
+                    <a 
+                      href="/filtered-search" 
+                      className="block px-3 py-2 rounded-md text-white font-medium bg-blue-700"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      Advanced Search
+                    </a>
+                  </li>
+                  <li>
+                    <a 
+                      href="/distribution-analysis" 
+                      className="block px-3 py-2 rounded-md text-blue-100 hover:text-white hover:bg-blue-700 transition-colors"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      Distribution Analysis
+                    </a>
+                  </li>
+                  <li>
+                    <a 
+                      href="/performance-prediction" 
+                      className="block px-3 py-2 rounded-md text-blue-100 hover:text-white hover:bg-blue-700 transition-colors"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      Performance Prediction
+                    </a>
+                  </li>
+                </ul>
+              </nav>
+            </div>
+          )}
         </div>
       </header>
 
@@ -488,12 +745,10 @@ export default function FilteredJournalSearch() {
                   placeholder="Select subcategories..."
                 />
 
-                <FilterMultiSelect
+                <PublisherAutocomplete
                   label="Publisher"
                   values={filters.publisher}
                   onChange={(value) => handleFilterChange('publisher', value)}
-                  options={filterOptions.publishers}
-                  placeholder="Select publishers..."
                 />
 
                 <FilterInput
@@ -570,20 +825,20 @@ export default function FilteredJournalSearch() {
                           className="hover:bg-blue-50 cursor-pointer transition-colors"
                           onClick={() => handleSelectJournal(journal)}
                         >
-                          <td className="px-6 py-4 text-sm font-medium text-blue-600 hover:text-blue-800">
+                          <td className="px-6 py-4 text-sm font-medium text-gray-900">
                             <div className="max-w-xs truncate">{journal.title}</div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{journal.issn || 'N/A'}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{journal.issn || journal.eissn || 'N/A'}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                              {journal.category_letter}
+                            <span className="px-2 py-1 inline-flex text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                              Category {journal.category_letter}
                             </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">{journal.jpi || 'N/A'}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{journal.jpi || 'N/A'}</td>
                           <td className="px-6 py-4 text-sm text-gray-500">
                             <div className="max-w-xs truncate">{journal.subject_area_name}</div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{journal.country_name}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{journal.country_name || 'N/A'}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{journal.range_val}</td>
                           <td className="px-6 py-4 text-sm text-gray-500">
                             <div className="max-w-xs truncate">{journal.publisher_name}</div>
@@ -673,4 +928,4 @@ export default function FilteredJournalSearch() {
       </main>
     </div>
   );
-}
+};
