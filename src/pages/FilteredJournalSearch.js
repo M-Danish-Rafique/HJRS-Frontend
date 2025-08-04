@@ -1,9 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Search, Book, AlertCircle, Loader2, X, Filter, ChevronDown, ChevronUp, Menu } from 'lucide-react';
 
-const API_BASE_URL = process.env.NODE_ENV === 'production' 
-  ? '' 
-  : 'https://hjrs-backend-production.up.railway.app';
+const API_BASE_URL = 'https://hjrs-backend-production.up.railway.app';
 
 export default function FilteredJournalSearch() {
   const [filters, setFilters] = useState({
