@@ -1,5 +1,10 @@
-import { useState, useEffect } from 'react';
-import { Search, Book, AlertCircle, Loader2, X, Menu } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Search, AlertCircle, Loader2, X } from 'lucide-react';
+import CustomDropdown from '../components/CustomDropdown';
+import JournalDetails from '../components/JournalDetails';
+import Navbar from '../components/Navbar';
+import CompactJournalCard from '../components/CompactJournalCard';
+import JournalGrid from '../components/JournalGrid';
 
 const API_BASE_URL = 'https://hjrs-backend-production.up.railway.app';
 
@@ -12,9 +17,7 @@ export default function JournalLookup() {
   const [searchResults, setSearchResults] = useState([]);
   const [error, setError] = useState(null);
   const [selectedJournal, setSelectedJournal] = useState(null);
-  
-  // Mobile menu state
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [totalResults, setTotalResults] = useState(0);
 
   useEffect(() => {
     console.log('Component mounted');
@@ -41,15 +44,15 @@ export default function JournalLookup() {
           credentials: 'include'
         }
       );
-      console.log('Search response:', response);
+
       if (!response.ok) {
-        console.log('Search response:', response);
         throw new Error('Failed to fetch search results');
       }
       const data = await response.json();
       setSearchResults(data);
+      setTotalResults(data.total || data.length);
+
       if (data.length === 0) {
-        console.log('No journals found matching your search criteria');
         setError('No journals found matching your search criteria');
       }
     } catch (err) {
@@ -59,16 +62,9 @@ export default function JournalLookup() {
     }
   };
 
-  const handleSelectJournal = async (journal) => {
-    setIsLoading(true);
-    try {
-      setSelectedJournal(journal);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const handleSelectJournal = useCallback((journal) => {
+    setSelectedJournal(journal);
+  }, []);
 
   const handleKeyPress = (e) => {
     if (e.key === 'Enter') {
@@ -85,109 +81,16 @@ export default function JournalLookup() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Responsive Header */}
-      <header className="bg-gradient-to-r from-blue-800 to-indigo-900 py-4 md:py-6 shadow-md">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between">
-            {/* Logo and Title */}
-            <div className="flex items-center space-x-3">
-              <Book className="h-6 w-6 md:h-8 md:w-8 text-white flex-shrink-0" />
-              <h1 className="text-lg md:text-2xl font-bold text-white">
-                <span className="hidden sm:inline">HEC Journal Recognition System</span>
-                <span className="sm:hidden">HEC JRS</span>
-              </h1>
-            </div>
-
-            {/* Desktop Navigation */}
-            <nav className="hidden lg:block">
-              <ul className="flex space-x-6">
-                <li>
-                  <a href="/journal-lookup" className="text-white font-medium">
-                    Journal Lookup
-                  </a>
-                </li>
-                <li>
-                  <a href="/filtered-search" className="text-blue-100 hover:text-white transition-colors">
-                    Advanced Search
-                  </a>
-                </li>
-                <li>
-                  <a href="/distribution-analysis" className="text-blue-100 hover:text-white transition-colors">
-                    Distribution Analysis
-                  </a>
-                </li>
-                <li>
-                  <a href="/performance-prediction" className="text-blue-100 hover:text-white transition-colors">
-                    Performance Prediction
-                  </a>
-                </li>
-              </ul>
-            </nav>
-
-            {/* Mobile Menu Button */}
-            <button
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="lg:hidden p-2 rounded-md text-blue-100 hover:text-white hover:bg-blue-700 transition-colors"
-              aria-label="Toggle mobile menu"
-            >
-              <Menu className="h-6 w-6" />
-            </button>
-          </div>
-
-          {/* Mobile Navigation */}
-          {isMobileMenuOpen && (
-            <div className="lg:hidden mt-4 pb-4 border-t border-blue-700">
-              <nav className="pt-4">
-                <ul className="space-y-2">
-                  <li>
-                    <a 
-                      href="/journal-lookup" 
-                      className="block px-3 py-2 rounded-md text-white font-medium bg-blue-700"
-                      onClick={() => setIsMobileMenuOpen(false)}
-                    >
-                      Journal Lookup
-                    </a>
-                  </li>
-                  <li>
-                    <a 
-                      href="/filtered-search" 
-                      className="block px-3 py-2 rounded-md text-blue-100 hover:text-white hover:bg-blue-700 transition-colors"
-                      onClick={() => setIsMobileMenuOpen(false)}
-                    >
-                      Advanced Search
-                    </a>
-                  </li>
-                  <li>
-                    <a 
-                      href="/distribution-analysis" 
-                      className="block px-3 py-2 rounded-md text-blue-100 hover:text-white hover:bg-blue-700 transition-colors"
-                      onClick={() => setIsMobileMenuOpen(false)}
-                    >
-                      Distribution Analysis
-                    </a>
-                  </li>
-                  <li>
-                    <a 
-                      href="/performance-prediction" 
-                      className="block px-3 py-2 rounded-md text-blue-100 hover:text-white hover:bg-blue-700 transition-colors"
-                      onClick={() => setIsMobileMenuOpen(false)}
-                    >
-                      Performance Prediction
-                    </a>
-                  </li>
-                </ul>
-              </nav>
-            </div>
-          )}
-        </div>
-      </header>
+      <Navbar currentPage="/journal-lookup" />
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto p-2 sm:px-4 sm:py-8">
         <div className="max-w-4xl mx-auto">
           <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
-            <h2 className="text-2xl font-semibold text-gray-800 mb-6">Journal Lookup</h2>
-            
+            <h2 className="text-lg md:text-xl lg:text-2xl font-semibold text-gray-800 mb-6 flex items-center">
+              <Search className="h-5 w-5 sm:h-6 sm:w-6 md:h-6 md:w-6 mr-2 text-blue-600" />
+              Journal Lookup
+            </h2>
             {/* Search Form */}
             <div className="flex flex-col md:flex-row gap-4 mb-6">
               <div className="flex-grow">
@@ -201,7 +104,7 @@ export default function JournalLookup() {
                     className="w-full pl-4 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                   />
                   {searchQuery && (
-                    <button 
+                    <button
                       onClick={clearSearch}
                       className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                     >
@@ -210,19 +113,21 @@ export default function JournalLookup() {
                   )}
                 </div>
               </div>
-              
-              <div>
-                <select
+
+              <div className="w-full md:w-48">
+                <CustomDropdown
                   value={searchType}
-                  onChange={(e) => setSearchType(e.target.value)}
-                  className="w-full md:w-48 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                >
-                  <option value="title">Title</option>
-                  <option value="issn">ISSN</option>
-                  <option value="eissn">eISSN</option>
-                </select>
+                  onChange={setSearchType}
+                  options={[
+                    { value: "title", label: "Title" },
+                    { value: "issn", label: "ISSN" },
+                    { value: "eissn", label: "eISSN" },
+                  ]}
+                  placeholder="Select search type..."
+                  required="true"
+                />
               </div>
-              
+
               <button
                 onClick={handleSearch}
                 disabled={isLoading}
@@ -244,118 +149,32 @@ export default function JournalLookup() {
                 <span>{error}</span>
               </div>
             )}
-
-            {/* Search Results */}
-            {searchResults.length > 0 && !selectedJournal && (
-              <div className="mb-6">
-                <h3 className="text-lg font-medium text-gray-800 mb-3">Search Results</h3>
-                {/* Table with horizontal scroll */}
-                <div className="border border-gray-200 rounded-lg overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ISSN</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subject Area</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Year</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Publisher</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {searchResults.map((journal) => (
-                          <tr 
-                            key={journal.journal_id} 
-                            className="hover:bg-blue-50 cursor-pointer"
-                            onClick={() => handleSelectJournal(journal)}
-                          >
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">{journal.title}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{journal.issn || 'N/A'}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                                {journal.category_letter}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{journal.subject_area_name}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{journal.range_val}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{journal.publisher_name}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Selected Journal Details */}
-            {selectedJournal && (
-              <div>
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-medium text-gray-800">Journal Details</h3>
-                  <button 
-                    onClick={() => setSelectedJournal(null)} 
-                    className="text-sm text-blue-600 hover:text-blue-800"
-                  >
-                    Back to results
-                  </button>
-                </div>
-                
-                <div className="bg-blue-50 border border-blue-100 rounded-lg p-6">
-                  <h2 className="text-xl font-bold text-gray-800 mb-4">{selectedJournal.title}</h2>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <div className="mb-4">
-                        <p className="text-sm text-gray-500 mb-1">ISSN</p>
-                        <p className="font-medium">{selectedJournal.issn || 'Not Available'}</p>
-                      </div>
-                      <div className="mb-4">
-                        <p className="text-sm text-gray-500 mb-1">eISSN</p>
-                        <p className="font-medium">{selectedJournal.eissn || 'Not Available'}</p>
-                      </div>
-                      <div className="mb-4">
-                        <p className="text-sm text-gray-500 mb-1">Category</p>
-                        <p className="font-medium">
-                          <span className="px-3 py-1 inline-flex text-sm font-semibold rounded-full bg-blue-100 text-blue-800">
-                            Category {selectedJournal.category_letter}
-                          </span>
-                        </p>
-                      </div>
-                      <div className="mb-4">
-                        <p className="text-sm text-gray-500 mb-1">Journal Performance Index (JPI)</p>
-                        <p className="font-medium">{selectedJournal.jpi || 'Not Available'}</p>
-                      </div>
-                      <div className="mb-4">
-                        <p className="text-sm text-gray-500 mb-1">Subject Subcategories</p>
-                        <p className="font-medium">{selectedJournal.subcategories}</p>
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <div className="mb-4">
-                        <p className="text-sm text-gray-500 mb-1">Subject Area</p>
-                        <p className="font-medium">{selectedJournal.subject_area_name}</p>
-                      </div>
-                      <div className="mb-4">
-                        <p className="text-sm text-gray-500 mb-1">Publisher</p>
-                        <p className="font-medium">{selectedJournal.publisher_name}</p>
-                      </div>
-                      <div className="mb-4">
-                        <p className="text-sm text-gray-500 mb-1">Country</p>
-                        <p className="font-medium">{selectedJournal.country_name || 'Not Available'}</p>
-                      </div>
-                      <div className="mb-4">
-                        <p className="text-sm text-gray-500 mb-1">Year</p>
-                        <p className="font-medium">{selectedJournal.range_val}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
+          {/* Search Results */}
+          {searchResults.length > 0 && !selectedJournal && (
+            <div className="bg-white border-gray-200 rounded-xl shadow-xl p-4 sm:p-6 mb-8">
+              <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 sm:mb-6 gap-4">
+                <h3 className="text-base sm:text-lg font-semibold text-gray-800">
+                  Search Results ({totalResults.toLocaleString()} journal
+                  {totalResults !== 1 ? "s" : ""} found)
+                </h3>
+              </div>
+              {/* Mobile Card View (< 640px) */}
+              <CompactJournalCard searchResults={searchResults} handleSelectJournal={handleSelectJournal}/>
+
+              {/* Tablet View and Desktop View (>= 640px) */}
+              <JournalGrid journals={searchResults} handleSelectJournal={handleSelectJournal}/>
+            </div>
+          )}
+          {/* Selected Journal Details */}
+          {selectedJournal && (
+            <JournalDetails
+              journal={selectedJournal}
+              onBack={() => setSelectedJournal(null)}
+              variant="default"
+            />
+          )}
+
         </div>
       </main>
     </div>
