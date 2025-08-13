@@ -422,12 +422,12 @@ const JournalPerformanceDetails = ({
                     </div>
                     <div className="text-2xl md:text-3xl mt-1.5 font-bold text-emerald-700 mb-1">
                       {typeof prediction.confidence === "number"
-                        ? `${(prediction.confidence * 100).toFixed(1)}%`
+                        ? `${(prediction.confidence * 100).toFixed(1)}`
                         : Number(prediction.confidence)
                         ? `${Number(prediction.confidence) * 100}`
                         : "N/A"}
                       <span className="text-xs ml-0.5">
-                        {Number(prediction.confidence) ? `%` : ""}
+                        {typeof prediction.confidence === "number" && Number(prediction.confidence) ? `%` : ""}
                       </span>
                     </div>
                     <div className="text-sm font-medium text-gray-600">
